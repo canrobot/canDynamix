@@ -1,0 +1,15 @@
+<launch>
+   
+ <include file="$(find turtlebot3_bringup)/launch/turtlebot3_core.launch"/>
+ <!--include file="$(find openni2_launch)/launch/openni2.launch"/-->
+ <!--include file="$(find atom_project)/launch/atom.launch"/-->
+ <!--include file="$(find turtlebot3_navigaion)/launch/turtlebot3_navigation.launch"/-->
+ <include file="$(find turtlebot3_bringup)/launch/turtlebot3_lidar.launch"/>
+
+<node name="can_control_node" pkg="can_dynamix" type="can_control" output="screen" />
+
+
+
+
+
+</launch>

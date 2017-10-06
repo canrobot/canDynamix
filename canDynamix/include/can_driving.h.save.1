@@ -1,0 +1,50 @@
+#ifnd_H_
+#define LANETRACE_NODE_H_
+
+#include <ros/ros.h>
+#include <std_msgs/UInt16.h>
+#include "opencv2/opencv.hpp"
+#include <iostream>
+#include <image_transport/image_transport.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sstream>
+
+#include "autorace/msg_flag.h"
+
+
+
+
+class lane
+ {
+ public:
+
+	lane();
+
+  ~lane() {};
+
+ void imageCallback(const sensor_msgs::ImageConstPtr& msg);
+
+ private:
+
+  //------------------------ Video subscriber ---------------------------------//
+  ros::NodeHandle nh;
+  image_transport::Subscriber sub_lanetrace;
+  //--------------------------------------------------------------------------//
+
+  //--------------------------- lanetrace publisher ------------------------------//
+    ros::NodeHandle nh2;   // ROS NodeHandle
+    ros::Publisher lanetrace_pub;  // ROS Topic Publishers
+
+    autorace::msg_flag flagmsg;
+ //----------------------------------------------------------------//
+
+    // int theta;    //test
+    double theta_old;
+    int median_num;
+    double theta_save[5];
+
+  };
+
+
+#endif
+
