@@ -12,8 +12,8 @@
    꼭 6핀인지 확인하세요. 5핀인 경우는 엔코더의 홀센서가 1개 밖이 없어서 정역회전을 구분할 수 없습니다.
 
  - DFROBOT 100:1  엔코더 모터   
-  - http://www.icbanq.com/P007122943
-  - http://mechasolution.com/shop/goods/goods_view.php?goodsno=329716&category=131003
+   - http://www.icbanq.com/P007122943
+   - http://mechasolution.com/shop/goods/goods_view.php?goodsno=329716&category=131003
     
 ### 3. n20용 브라켓 
  - http://mechasolution.com/shop/goods/goods_view.php?goodsno=539154&category=131015
