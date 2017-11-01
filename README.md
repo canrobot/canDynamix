@@ -38,36 +38,70 @@
 
 
 1. arduino nano(ch340)		http://www.devicemart.co.kr/1342039
+
 2. mpu9250			http://www.devicemart.co.kr/1342892
+
 3. 전원스위치			http://www.devicemart.co.kr/1795
+
 4. 모터드라이버			https://www.aliexpress.com/item/Free-Shipping-New-BA6208-CD6208CS-SIP-9-30PCS/32673832095.html?spm=a2g0s.9042311.0.0.NQuNpX
+
 5. 전원 DC잭			http://www.devicemart.co.kr/1322104
+
 6. PCB서포트용 나사(M3X10)		http://www.devicemart.co.kr/12677
+
 7. PCB서포트 금속 F-3mm		http://www.devicemart.co.kr/4595
+
 8. PCB서포트 금속 M-10mm		http://www.devicemart.co.kr/3160
+
 9. PCB서포트 금속 M-35mm		http://www.devicemart.co.kr/18884
+
 10.칩저항 1608사이즈 J급 270Ω	http://www.devicemart.co.kr/19209
+
 11.칩저항 1608사이즈 J급 470Ω	http://www.devicemart.co.kr/14142
+
 12.칩저항 1608사이즈 J급 2KΩ		http://www.devicemart.co.kr/6079
+
 13.칩저항 1608사이즈 J급 1KΩ		http://www.devicemart.co.kr/6058
+
 14.칩저항 1608사이즈 J급 330Ω	http://www.devicemart.co.kr/19220
+
 15.35155용 클림프			http://www.devicemart.co.kr/36450
+
 16.5051용 클림프 (낱단자)		http://www.devicemart.co.kr/1128414
+
 17.커넥터-53258-02			http://www.devicemart.co.kr/381
+
 18.커넥터-MOLEX 51067-02		http://www.devicemart.co.kr/373
+
 19.테스트[CH254]점퍼용 소켓- single 1x3P http://www.devicemart.co.kr/5490
+
 20.테스트[CH254]점퍼용 소켓- single 1x2P http://www.devicemart.co.kr/5489
+
 21.테스트[CH254]점퍼용 소켓- single 1x1P http://www.devicemart.co.kr/5488
+
 22.테스트[CH254]점퍼용 클림프 (암)	    http://www.devicemart.co.kr/5710
+
 23.핀헤더 Single 1x40Pin Straight(2.54mm) http://www.devicemart.co.kr/2825
+
 24.Single 1x40Pin Rightangle(2.54mm)	http://www.devicemart.co.kr/1077101  <-- 노랑, 빨강 필수 검정 23번을 이용하세요.
+
 25.P2285-LOCK			http://www.devicemart.co.kr/1795
+
 26.LM2596SX-5.0			http://www.devicemart.co.kr/10037
+
 27.SMD E/C 16V 470uF(85℃)/8Ø x10mm http://www.devicemart.co.kr/34601
+
 28.SMD E/C 6.3V 220uF (85℃)/6.3Ø x6mm http://www.devicemart.co.kr/4252
+
 29.SC1054D-33uH [SMD 파워 인덕터]	http://www.devicemart.co.kr/14012
+
 30.부저-BTG-47			http://www.devicemart.co.kr/32828
+
 31.스위치-IMMS-12V			http://www.devicemart.co.kr/2647
+
 32.다이오드-SS14			http://www.devicemart.co.kr/11911
+
 33.핀헤더소켓 Single 1x20 Straight(2.54mm) http://www.devicemart.co.kr/3587
+
 34.핀헤더소켓 Dual 2x20 Straight(2.54mm) http://www.devicemart.co.kr/2828
+
