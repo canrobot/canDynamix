@@ -3,7 +3,7 @@
 
 
 
-기본 목록 
+[기본 목록] 
 ===
 
 ### 1. 라즈베리파이  
@@ -43,7 +43,7 @@
 
 
 
-PCB 부품 목록 
+[PCB 부품 목록] 
 ===
 
 1. arduino nano  http://www.devicemart.co.kr/1342039
