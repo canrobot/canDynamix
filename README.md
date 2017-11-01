@@ -23,7 +23,7 @@
  4. n20용 wheel 
   - http://mechasolution.com/shop/goods/goods_view.php?goodsno=539532&category=140003
 
- 5. [Pololu] 1/2" 메탈 볼캐스터 (Pololu Ball Caster with 1/2″ Metal Ball) 
+ 5. [Pololu] 3/8" 메탈 볼캐스터 (Pololu Ball Caster with 3/8″ Metal Ball) 
   - http://mechasolution.com/shop/goods/goods_view.php?goodsno=57&category=140006
 
  6. 9V 배터리 홀더 
