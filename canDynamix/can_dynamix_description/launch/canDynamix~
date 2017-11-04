@@ -1,0 +1,9 @@
+<launch>
+  <arg name="model" />
+  <param name="robot_description" textfile="$(find canDynamix)/urdf/canDynamix_01_main.urdf" />
+  <param name="use_gui" value="true" />
+
+  <node name="join_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find canDynamix)/urdf.rviz" required="true" />
+</launch>

@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package>
+  <name>can_dynamix_bringup</name>
+  <version>0.1.0</version>
+  <description>
+    roslaunch scripts for starting the canDynamix
+  </description>
+  <license>Apache License 2.0</license>
+  <author email="tlsrudak@naver.com">KyungMan Shin</author>
+  <maintainer email="tlsrudak@naver.com">KyungMan Shin</maintainer>
+  <url type="bugtracker">https://github.com/canrobot/canDynamix/issues</url>
+  <url type="repository">https://github.com/canrobot/canDynamix</url>
+  <url type="website">https://github.com/canrobot</url>
+  <buildtool_depend>catkin</buildtool_depend>
+  <run_depend>can_dynamix_description</run_depend>
+  <!--
+  <run_depend>turtlebot3_teleop</run_depend>
+  <run_depend>robot_state_publisher</run_depend>
+  <run_depend>rosserial_python</run_depend>
+  <run_depend>hls_lfcd_lds_driver</run_depend>
+  -->
+  <export></export>
+</package>

@@ -1,2 +1,0 @@
-string sign_result
-
