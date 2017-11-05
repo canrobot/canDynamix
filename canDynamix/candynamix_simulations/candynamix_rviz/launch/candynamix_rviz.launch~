@@ -1,0 +1,24 @@
+<launch>
+<!--
+  <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle]"/>
+
+  <param name="tb3_model" value="$(arg model)"/>
+
+  <include file="$(find turtlebot3_bringup)/launch/includes/description.launch.xml">
+    <arg name="model" value="$(arg model)" />
+  </include>
+-->
+  <node pkg="candynamix_rviz" type="candynamix_rviz_node" name="candynamix_rviz_node" output="screen" />
+
+<!--
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+
+
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="screen">
+    <param name="publish_frequency" type="double" value="50.0" />
+  </node>
+
+
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find turtlebot3_fake)/rviz/turtlebot3_fake.rviz"/>
+-->
+</launch>
