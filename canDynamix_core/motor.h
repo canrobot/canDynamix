@@ -1,13 +1,24 @@
-#include <Arduino.h>
+#ifndef _MOTOR_H_
+#define _MOTOR_H_
 
-#define CW		0
-#define CCW		1
-#define Motor_Lpin1	3
-#define Motor_Lpin2	5
-#define Motor_Rpin1	6
-#define Motor_Rpin2	9
 
-void Motor_Left(int direction, int speed);
-void Motor_Right(int direction, int speed);
-void n20_Motor(int leftMotorSpeed, int rightMotorSpeed);
-void Motor_Stop();
+
+#define L_MOTOR    0
+#define R_MOTOR    1
+
+
+
+
+
+void motorBegin(void);
+
+int32_t motorGetSpeed(uint8_t ch);
+int32_t motorGetCounter(uint8_t ch);
+int32_t motorGetGoalSpeed(uint8_t ch);
+
+void motorSetSpeed(uint8_t ch, int16_t speed);
+void motorSetPwm(uint8_t ch, int16_t pwm_data);
+void motorMoveSpeed(int16_t left_speed, int16_t right_speed);
+
+#endif
+

@@ -1,33 +1,43 @@
-
 /* Authors: kyungman shin */
 
 #include <ros.h>
 #include <std_msgs/String.h>
 #include <std_msgs/Empty.h>
 #include <std_msgs/Int64.h>
+#include <std_msgs/Int32.h>
 #include <geometry_msgs/Twist.h>
+#include <sensor_msgs/JointState.h>
+#include <geometry_msgs/Vector3.h>
+#include <geometry_msgs/Twist.h>
+#include <tf/tf.h>
+#include <tf/transform_broadcaster.h>
+#include <nav_msgs/Odometry.h>
 
 #include "motor.h"
 
-#define WHEEL_RADIUS                     0.033           // meter
-//#define WHEEL_SEPARATION                 0.160           // meter (BURGER : 0.160, WAFFLE : 0.287)
-#define WHEEL_SEPARATION                 0.100           // meter (canDynamix n20 motor)
+
+#define WHEEL_RADIUS                     0.0165          // meter
+#define WHEEL_SEPARATION                 0.086           // meter (canDynamix n20 motor)
 #define TURNING_RADIUS                   0.080           // meter (BURGER : 0.080, WAFFLE : 0.1435)
 #define ROBOT_RADIUS                     0.105           // meter (BURGER : 0.105, WAFFLE : 0.220)
-#define ENCODER_MIN                      -2147483648     // raw
+#define ENCODER_MIN                     -2147483648      // raw
 #define ENCODER_MAX                      2147483648      // raw
 
 #define LEFT  0
 #define RIGHT 1
 
-#define CONTROL_MOTOR_SPEED_PERIOD       30   //hz
+#define CONTROL_MOTOR_SPEED_PERIOD        30   //hz
 
-#define VELOCITY_CONSTANT_VALUE          1263.632956882  // V = r * w = r * RPM * 0.10472
-                                                         //   = 0.033 * 0.229 * Goal RPM * 0.10472
-                                                         // Goal RPM = V * 1263.632956882
+#define VELOCITY_CONSTANT_VALUE           135.1090523 // V = r * w = 1400 / 2 * PI * r 
+                                                      // = 0.0165 * 0.229 * Goal RPM * 0.10472
+                                                      // Goal Speed = V * 1263.632956882
 
 // Limit values (n20 encoder motor)
-#define LIMIT_X_MAX_VELOCITY            255
+#define LIMIT_X_MAX_VELOCITY              30
+
+#define MAX_LINEAR_VELOCITY               0.22   // m/s
+#define MAX_ANGULAR_VELOCITY              2.84 // rad/s
+
 
 // Callback function prototypes
 void commandVelocityCallback(const geometry_msgs::Twist& cmd_vel_msg);
@@ -49,14 +59,12 @@ ros::Subscriber<geometry_msgs::Twist> cmd_vel_sub("cmd_vel", commandVelocityCall
 /*******************************************************************************
 * Publisher
 *******************************************************************************/
-std_msgs::String str_msg;
-ros::Publisher canDynamix_pub("/canDynamix/state_msg", &str_msg);
+std_msgs::Int32 int32_left_msg;
+ros::Publisher left_enc_cnt_pub("/canDynamix/left_encoder", &int32_left_msg);
 
-std_msgs::Int64 int64_left_msg;
-ros::Publisher leftPwm_pub("/canDynamix/left_pwm", &int64_left_msg);
+std_msgs::Int32 int32_right_msg;
+ros::Publisher right_enc_cnt_pub("/canDynamix/right_encoder", &int32_right_msg);
 
-std_msgs::Int64 int64_right_msg;
-ros::Publisher rightPwm_pub("/canDynamix/right_pwm", &int64_right_msg);
 
 
 /*******************************************************************************
@@ -78,41 +86,43 @@ int count_right = 0;
 
 void setup() {
 
-  Serial.begin(9600);
-  pinMode(7,INPUT);
-  pinMode(8,INPUT);
+  motorBegin();
+  Serial.begin(115200);
 
-  nh.initNode();
+  motorMoveSpeed(0, 0);
+  
+  pinMode(13, OUTPUT);
 
+  nh.getHardware()->setBaud(115200);
+  nh.initNode();  
   nh.subscribe(cmd_vel_sub);
-
-  nh.advertise(canDynamix_pub);
-  nh.advertise(leftPwm_pub);
-  nh.advertise(rightPwm_pub);
-
-
+  nh.advertise(left_enc_cnt_pub);
+  nh.advertise(right_enc_cnt_pub);
 }
 
 void loop() {
   
- if ((millis()-tTime[0]) >= (1000 / CONTROL_MOTOR_SPEED_PERIOD))
+  if ((millis()-tTime[0]) >= (1000 / CONTROL_MOTOR_SPEED_PERIOD))
   {
     controlMotorSpeed();
     tTime[0] = millis();
   }
 
- int left_out = digitalRead(2);
- int right_out = digitalRead(4);
+  
+  if ((millis()-tTime[1]) >= (1000 / 100))
+  {
+    controlMotorSpeed();
+    tTime[1] = millis();
 
-if (left_out  == 1)  count_left  = count_left+1;
-if (right_out == 1)  count_right = count_right+1;
+    int32_left_msg.data  = motorGetCounter(L_MOTOR);
+    int32_right_msg.data = motorGetCounter(R_MOTOR);
 
-//Serial.print("[left]  "); Serial.print(count_left);
-//Serial.print("  [right] "); Serial.println(count_right);
+    left_enc_cnt_pub.publish(&int32_left_msg);
+    right_enc_cnt_pub.publish(&int32_right_msg);      
+  }
+  
 
- // Call all the callbacks waiting to be called at that point in time
   nh.spinOnce();
-
 }
 
 /*******************************************************************************
@@ -122,6 +132,8 @@ void commandVelocityCallback(const geometry_msgs::Twist& cmd_vel_msg)
 {
   goal_linear_velocity  = cmd_vel_msg.linear.x;
   goal_angular_velocity = cmd_vel_msg.angular.z;
+
+  digitalWrite(13, !digitalRead(13));
 }
 
 
@@ -159,19 +171,6 @@ void controlMotorSpeed(void)
     lin_vel2 = -LIMIT_X_MAX_VELOCITY;
   }
 
-  //dxl_comm_result = motor_driver.speedControl((int64_t)lin_vel1, (int64_t)lin_vel2);
-
-  //Motor_Left(CW, (int64_t)lin_vel1); Motor_Right(CCW, (int64_t)lin_vel2);
-
-  n20_Motor((int64_t)lin_vel1, (int64_t)lin_vel2);
-
-  int64_left_msg.data =  lin_vel1;
-  int64_right_msg.data =  lin_vel2;
-
-
-  leftPwm_pub.publish(&int64_left_msg);
-  rightPwm_pub.publish(&int64_right_msg);
-
-  canDynamix_pub.publish(&str_msg);
-
+  
+  motorMoveSpeed((int32_t)lin_vel1, (int32_t)lin_vel2);
 }
