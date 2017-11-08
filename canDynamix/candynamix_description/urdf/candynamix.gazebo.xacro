@@ -23,7 +23,7 @@
   </gazebo>
 
   <gazebo reference="base_link">
-    <material>Gazebo/Grey</material>
+    <material><color rgba="${255/255} ${108/255} ${10/255} 1.0"/></material>
   </gazebo>
 
   <gazebo reference="wheel_left_link">

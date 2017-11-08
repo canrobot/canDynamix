@@ -1,4 +1,5 @@
 <launch>
+        <param name="robot_description" command="$(find xacro)/xacro.py $(find candynamix_description)/urdf/candynamix.urdf.xacro" />
 
   <node pkg="candynamix_rviz" type="candynamix_rviz_node" name="candynamix_rviz_node" output="screen" />
 
