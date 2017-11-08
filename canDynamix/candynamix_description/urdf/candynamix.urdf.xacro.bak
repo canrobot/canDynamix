@@ -134,14 +134,14 @@
   <joint name="scan_joint" type="fixed">
     <parent link="base_link"/>
     <child link="base_scan"/>
-    <origin xyz="0.03 0 0.03" rpy="${M_PI*0.5} 0 0 "/>
+    <origin xyz="0.03 0 0.03" rpy="${M_PI*0.5} 0 1.57 "/>
   </joint>
 
 
-  <link name="base_scan" type="fixed">
+  <link name="base_scan">
 
     <visual>
-      <origin xyz="0 0 0" rpy="0 ${M_PI*0.5} 0 "/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
         <mesh filename="package://candynamix_description/meshes/sensors/HC-SR04-UltrasonicSensor.stl" scale="0.001 0.001 0.001"/>
       </geometry>
@@ -149,7 +149,7 @@
     </visual>
 
     <collision>
-      <origin xyz="0 0 0" rpy="5 10 60"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
         <cylinder length="0.003" radius="0.003"/>
       </geometry>
