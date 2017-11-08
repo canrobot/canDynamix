@@ -45,6 +45,10 @@ typedef struct
 motor_cfg_t motor_cfg[2];
 
 
+void (*motor_isr_callback)(void) = NULL;
+
+
+
 static void motorEncoderLeftISR(void);
 static void motorEncoderRightISR(void);
 static void motorEncoderUpdate(uint8_t ch);
@@ -95,6 +99,11 @@ void motorBegin(void)
 
   FlexiTimer2::set(10, motorUpdateISR); 
   FlexiTimer2::start();  
+}
+
+void motorSetCallback(void (*func)(void))
+{
+  motor_isr_callback = func;
 }
 
 int32_t motorGetSpeed(uint8_t ch)
@@ -163,6 +172,11 @@ void motorUpdateISR(void)
         motorSetPwm(i, (int16_t)motor_cfg[i].pwm_output);
       }
     }      
+  }
+
+  if (motor_isr_callback != NULL)
+  {
+    (*motor_isr_callback)();
   }
 }
 
