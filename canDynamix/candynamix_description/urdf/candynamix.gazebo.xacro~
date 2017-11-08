@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
-<robot name="can_dynamix_sim" xmlns:xacro="http://ros.org/wiki/xacro">
+<robot name="candynamix_gazebo" xmlns:xacro="http://ros.org/wiki/xacro">
   <xacro:arg name="laser_visual" default="false"/>
   <xacro:arg name="imu_visual"   default="false"/>
 
   <gazebo>
-    <plugin name="can_dynamix_controller" filename="libgazebo_ros_diff_drive.so">
+    <plugin name="candynamix_gazebo_controller" filename="libgazebo_ros_diff_drive.so">
       <commandTopic>cmd_vel</commandTopic>
       <odometryTopic>odom</odometryTopic>
       <odometryFrame>odom</odometryFrame>
