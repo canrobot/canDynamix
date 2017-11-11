@@ -15,8 +15,8 @@
       <updateRate>100</updateRate>
       <leftJoint>wheel_left_joint</leftJoint>
       <rightJoint>wheel_right_joint</rightJoint>
-      <wheelSeparation>0.160</wheelSeparation>
-      <wheelDiameter>0.066</wheelDiameter>
+      <wheelSeparation>0.085</wheelSeparation>
+      <wheelDiameter>0.033</wheelDiameter>
       <wheelAcceleration>1</wheelAcceleration>
       <wheelTorque>10</wheelTorque>
     </plugin>
