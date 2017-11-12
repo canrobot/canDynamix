@@ -23,6 +23,9 @@ add_message_files(
   MotorPower.msg
   VersionInfo.msg
   PanoramaImg.msg
+  imu_raw.msg
+  encoder.msg
+  sensor.msg
 )
 
 add_service_files(

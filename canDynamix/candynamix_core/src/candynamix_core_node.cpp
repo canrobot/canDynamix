@@ -2,6 +2,9 @@
 
 #include <candynamix_core/candynamix_core_node.h>
 
+
+
+
 CanDynamixCore::CanDynamixCore()
 : nh_priv_("~")
 {
@@ -19,24 +22,7 @@ CanDynamixCore::~CanDynamixCore()
 bool CanDynamixCore::init()
 {
   // initialize ROS parameter
-	
-  /*
-  std::string robot_model = nh_.param<std::string>("tb3_model", "");
-
-  if (!robot_model.compare("burger"))
-  {
-    wheel_seperation_ = 0.160;
-    turning_radius_   = 0.080;
-    robot_radius_     = 0.105;
-  }
-  else if (!robot_model.compare("waffle"))
-  {
-    wheel_seperation_ = 0.287;
-    turning_radius_   = 0.1435;
-    robot_radius_     = 0.220;
-  }
-  */
-	
+		
 	wheel_seperation_ = 0.085;
   turning_radius_   = 0.080;
   robot_radius_     = 0.105;
@@ -88,44 +74,51 @@ bool CanDynamixCore::init()
 
   // initialize publishers
   joint_states_pub_ = nh_.advertise<sensor_msgs::JointState>("joint_states", 100);
-  odom_pub_         = nh_.advertise<nav_msgs::Odometry>("odom", 100);
+  odom_pub_         = nh_.advertise<nav_msgs::Odometry>("odom", 100);    
+  sonic_pub_        = nh_.advertise<sensor_msgs::Range>("/canDynamix/sonic_range", 100);
+  imu_pub_          = nh_.advertise<sensor_msgs::Imu>("imu", 100);
+  
 
-
-  left_encoder_sub_  = nh_.subscribe("/canDynamix/left_encoder", 100,   &CanDynamixCore::leftEncoderCallback, this);
-  right_encoder_sub_ = nh_.subscribe("/canDynamix/right_encoder", 100,  &CanDynamixCore::rightEncoderCallback, this);
-
+  sensor_sub_       = nh_.subscribe("/canDynamix/sensor", 100, &CanDynamixCore::sensorCallback, this);  
+  
 
   prev_update_time_ = ros::Time::now();
+  prev_time_ = ros::Time::now();
+
 
   return true;
 }
 
-void CanDynamixCore::leftEncoderCallback(const std_msgs::Int32 encoder_value)
+void CanDynamixCore::sensorCallback(const candynamix_msgs::sensor sensor_msg)
 {
   static bool started = false;
+  static int32_t seq_ctr = 0;
 
-  left_encoder = encoder_value.data;
-  
+
+  left_encoder  = sensor_msg.left_count;
+  right_encoder = sensor_msg.right_count;
+
   if (started == false)
   {
-    pre_left_encoder = left_encoder;
-    started = true;
-  }
-}
-
-
-void CanDynamixCore::rightEncoderCallback(const std_msgs::Int32 encoder_value)
-{
-  static bool started = false;
-
-  right_encoder = encoder_value.data;
-  
-  if (started == false)
-  {
+    pre_left_encoder  = left_encoder;
     pre_right_encoder = right_encoder;
     started = true;
   }
+
+  sonic_.field_of_view = DEG2RAD(10);  
+  sonic_.max_range = 200.0 / 100.0;    //    2m
+  sonic_.min_range =   2.0 / 100.0;    // 0.02m
+  sonic_.header.frame_id = "base_scan";
+  sonic_.radiation_type = sensor_msgs::Range::ULTRASOUND;
+
+  sonic_.header.stamp = ros::Time::now();
+  sonic_.header.seq = seq_ctr++;
+  sonic_.range = ((sensor_msg.sonic_distance_time / 2.9) / 2) / 1000.0;    
   
+
+  sonic_pub_.publish(sonic_);
+
+  updateIMU(sensor_msg);
 }
 
 
@@ -186,8 +179,9 @@ bool CanDynamixCore::updateOdometry(ros::Duration diff_time)
   odom_.pose.pose.position.x = odom_pose_[0];
   odom_.pose.pose.position.y = odom_pose_[1];
   odom_.pose.pose.position.z = 0;
-  odom_.pose.pose.orientation = tf::createQuaternionMsgFromYaw(odom_pose_[2]);
-
+  odom_.pose.pose.orientation = tf::createQuaternionMsgFromYaw(odom_pose_[2]);  
+  
+  
   // We should update the twist of the odometry
   odom_.twist.twist.linear.x  = odom_vel_[0];
   odom_.twist.twist.angular.z = odom_vel_[2];
@@ -221,6 +215,75 @@ void CanDynamixCore::updateTF(geometry_msgs::TransformStamped& odom_tf)
   odom_tf.transform.translation.z = odom_.pose.pose.position.z;
   odom_tf.transform.rotation = odom_.pose.pose.orientation;
 }
+geometry_msgs::TransformStamped odom_tf;
+/*******************************************************************************
+* Publish msgs (IMU data: angular velocity, linear acceleration, orientation)
+*******************************************************************************/
+void CanDynamixCore::updateIMU(const candynamix_msgs::sensor sensor_msg)
+{
+  imu_msg.header.stamp    = ros::Time::now();
+  imu_msg.header.frame_id = "imu_link";
+
+  imu_msg.angular_velocity.x = sensor_msg.gx;
+  imu_msg.angular_velocity.y = sensor_msg.gy;
+  imu_msg.angular_velocity.z = sensor_msg.gz;
+  imu_msg.angular_velocity_covariance[0] = 0.02;
+  imu_msg.angular_velocity_covariance[1] = 0;
+  imu_msg.angular_velocity_covariance[2] = 0;
+  imu_msg.angular_velocity_covariance[3] = 0;
+  imu_msg.angular_velocity_covariance[4] = 0.02;
+  imu_msg.angular_velocity_covariance[5] = 0;
+  imu_msg.angular_velocity_covariance[6] = 0;
+  imu_msg.angular_velocity_covariance[7] = 0;
+  imu_msg.angular_velocity_covariance[8] = 0.02;
+
+  imu_msg.linear_acceleration.x = sensor_msg.ax;
+  imu_msg.linear_acceleration.y = sensor_msg.ay;
+  imu_msg.linear_acceleration.z = sensor_msg.az;
+  imu_msg.linear_acceleration_covariance[0] = 0.04;
+  imu_msg.linear_acceleration_covariance[1] = 0;
+  imu_msg.linear_acceleration_covariance[2] = 0;
+  imu_msg.linear_acceleration_covariance[3] = 0;
+  imu_msg.linear_acceleration_covariance[4] = 0.04;
+  imu_msg.linear_acceleration_covariance[5] = 0;
+  imu_msg.linear_acceleration_covariance[6] = 0;
+  imu_msg.linear_acceleration_covariance[7] = 0;
+  imu_msg.linear_acceleration_covariance[8] = 0.04;
+
+  imu_msg.orientation.w = sensor_msg.qw;
+  imu_msg.orientation.x = sensor_msg.qx;
+  imu_msg.orientation.y = sensor_msg.qy;
+  imu_msg.orientation.z = sensor_msg.qz;
+
+  imu_msg.orientation_covariance[0] = 0.0025;
+  imu_msg.orientation_covariance[1] = 0;
+  imu_msg.orientation_covariance[2] = 0;
+  imu_msg.orientation_covariance[3] = 0;
+  imu_msg.orientation_covariance[4] = 0.0025;
+  imu_msg.orientation_covariance[5] = 0;
+  imu_msg.orientation_covariance[6] = 0;
+  imu_msg.orientation_covariance[7] = 0;
+  imu_msg.orientation_covariance[8] = 0.0025;
+
+  imu_pub_.publish(imu_msg);
+  
+
+  tfs_msg.header.stamp    = ros::Time::now();
+  tfs_msg.header.frame_id = "base_link";
+  tfs_msg.child_frame_id  = "imu_link";
+  tfs_msg.transform.rotation.w = sensor_msg.qw;  
+  tfs_msg.transform.rotation.x = sensor_msg.qx;
+  tfs_msg.transform.rotation.y = sensor_msg.qy;
+  tfs_msg.transform.rotation.z = sensor_msg.qz;
+
+
+  tfs_msg.transform.translation.x = 0.0;
+  tfs_msg.transform.translation.y = 0.0;
+  tfs_msg.transform.translation.z = 0.068;
+
+  tf_broadcaster_.sendTransform(tfs_msg);
+}
+
 
 /*******************************************************************************
 * Update function
@@ -251,7 +314,7 @@ bool CanDynamixCore::update()
   joint_states_pub_.publish(joint_states_);
 
   // tf
-  geometry_msgs::TransformStamped odom_tf;
+  
   updateTF(odom_tf);
   tf_broadcaster_.sendTransform(odom_tf);
   

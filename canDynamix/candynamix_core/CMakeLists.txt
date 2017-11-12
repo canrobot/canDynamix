@@ -14,11 +14,13 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   tf
+  candynamix_msgs
 )
 
 ################################################################################
 # Declare ROS messages, services and actions
 ################################################################################
+
 
 ################################################################################
 # Declare ROS dynamic reconfigure parameters

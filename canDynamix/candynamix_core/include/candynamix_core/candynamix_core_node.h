@@ -13,6 +13,9 @@
 #include <tf/tf.h>
 #include <tf/transform_broadcaster.h>
 #include <nav_msgs/Odometry.h>
+#include <sensor_msgs/Range.h>
+#include <candynamix_msgs/sensor.h>
+
 
 
 #define WHEEL_RADIUS                    (0.034/2)                           // 바퀴 반지름(meter)
@@ -58,6 +61,7 @@ class CanDynamixCore
   // ROS Time
   ros::Time last_cmd_vel_time_;
   ros::Time prev_update_time_;
+  ros::Time prev_time_;
 
   // ROS Topic Publishers
   ros::Publisher joint_states_pub_;
@@ -67,8 +71,14 @@ class CanDynamixCore
   nav_msgs::Odometry odom_;
   tf::TransformBroadcaster tf_broadcaster_;
 
-  ros::Subscriber left_encoder_sub_;
-  ros::Subscriber right_encoder_sub_;
+  sensor_msgs::Range sonic_;
+  geometry_msgs::TransformStamped tfs_msg;
+  ros::Publisher sonic_pub_;
+  ros::Subscriber sensor_sub_;
+  
+  sensor_msgs::Imu imu_msg;
+  ros::Publisher imu_pub_;
+    
 
   double left_encoder;
   double right_encoder;
@@ -98,9 +108,11 @@ class CanDynamixCore
   bool updateOdometry(ros::Duration diff_time);
   void updateJoint(void);
   void updateTF(geometry_msgs::TransformStamped& odom_tf);
+  void updateIMU(const candynamix_msgs::sensor sensor_msg);
 
-  void rightEncoderCallback(const std_msgs::Int32 encoder_value);
-  void leftEncoderCallback(const std_msgs::Int32 encoder_value);  
+  void sensorCallback(const candynamix_msgs::sensor sensor_msg);
+
+
 
 };
 

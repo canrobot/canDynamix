@@ -13,11 +13,14 @@
 #include <tf/tf.h>
 #include <tf/transform_broadcaster.h>
 #include <nav_msgs/Odometry.h>
+#include <candynamix_msgs/sensor.h>
 
 #include "motor.h"
 #include "MedianFilter.h"
+#include "src/mpu9250/MPU9250.h"
+#include "src/mpu9250/MadgwickAHRS.h"
 
-
+#include <Wire.h>
 
 #define WHEEL_RADIUS                     0.0165          // meter
 #define WHEEL_SEPARATION                 0.086           // meter (canDynamix n20 motor)
@@ -29,7 +32,7 @@
 #define LEFT  0
 #define RIGHT 1
 
-#define CONTROL_MOTOR_SPEED_PERIOD        30   //hz
+
 
 #define VELOCITY_CONSTANT_VALUE           135.1090523 // V = r * w = 1400 / 2 * PI * r 
                                                       // = 0.0165 * 0.229 * Goal RPM * 0.10472
@@ -38,9 +41,8 @@
 #define DEG2RAD(x)                        (x * 0.01745329252)  // *PI/180
 #define RAD2DEG(x)                        (x * 57.2957795131)  // *180/PI
                                                       
-// Limit values (n20 encoder motor)
+// Limit values 
 #define LIMIT_X_MAX_VELOCITY              30
-
 #define MAX_LINEAR_VELOCITY               0.22   // m/s
 #define MAX_ANGULAR_VELOCITY              2.84 // rad/s
 
@@ -67,14 +69,9 @@ ros::Subscriber<geometry_msgs::Twist> cmd_vel_sub("cmd_vel", commandVelocityCall
 /*******************************************************************************
 * Publisher
 *******************************************************************************/
-std_msgs::Int32 int32_left_msg;
-ros::Publisher left_enc_cnt_pub("/canDynamix/left_encoder", &int32_left_msg);
+candynamix_msgs::sensor sensor_msg;
+ros::Publisher sensor_pub("/canDynamix/sensor", &sensor_msg);
 
-std_msgs::Int32 int32_right_msg;
-ros::Publisher right_enc_cnt_pub("/canDynamix/right_encoder", &int32_right_msg);
-
-sensor_msgs::Range sonic_msg;
-ros::Publisher sonic_pub("/canDynamix/sonic_range", &sonic_msg);
 
 
 /*******************************************************************************
@@ -86,21 +83,27 @@ static uint32_t tTime[4];
 /*******************************************************************************
 * Declaration for motor
 *******************************************************************************/
-bool init_encoder_[2]  = {false, false};
 double goal_linear_velocity  = 0.0;
 double goal_angular_velocity = 0.0;
-
-int count_left = 0;
-int count_right = 0;
 
 
 /*******************************************************************************
 * Declaration for sonic
 *******************************************************************************/
 MedianFilter sonic_filter(16, 0);
-const int sonic_trigger_pin = A0; //Trig pin
-const int sonic_echo_pin    = A1; //Echo pin
-double    sonic_distance    = 0.0;
+#define sonic_trigger_pin  A0 //Trig pin
+#define sonic_echo_pin     A1 //Echo pin
+
+
+/*******************************************************************************
+* Declaration for MPU9250
+*******************************************************************************/
+MPU9250  mpu9250;
+Madgwick filter;
+
+float acc_cal[3];
+float gyro_cal[3];
+
 
 
 void setup() {
@@ -114,12 +117,17 @@ void setup() {
   pinMode(sonic_trigger_pin, OUTPUT); // Trigger is an output pin
   pinMode(sonic_echo_pin, INPUT);     // Echo is an input pin
 
+
+  Wire.begin();  
+  mpu9250.initialize();
+  filter.begin(100);
+  imuCalibration();
+
+
   nh.getHardware()->setBaud(115200);
   nh.initNode();  
   nh.subscribe(cmd_vel_sub);
-  nh.advertise(left_enc_cnt_pub);
-  nh.advertise(right_enc_cnt_pub);
-  nh.advertise(sonic_pub);
+  nh.advertise(sensor_pub);
 }
 
 void loop() {
@@ -137,16 +145,18 @@ void loop() {
   // 100Hz
   if ((millis()-tTime[1]) >= (1000 / 100))
   {
-    controlMotorSpeed();
     tTime[1] = millis();
 
-    int32_left_msg.data  = motorGetCounter(L_MOTOR);
-    int32_right_msg.data = motorGetCounter(R_MOTOR);
+    sensor_msg.left_count  = motorGetCounter(L_MOTOR);
+    sensor_msg.right_count = motorGetCounter(R_MOTOR);
 
-    left_enc_cnt_pub.publish(&int32_left_msg);
-    right_enc_cnt_pub.publish(&int32_right_msg);      
+        
+    updateMPU9250();
+
+
+    sensor_pub.publish(&sensor_msg);
   }
-  
+
   
   // 50Hz
   if ((millis()-tTime[2]) >= (1000 / 50))
@@ -154,19 +164,6 @@ void loop() {
     tTime[2] = millis();
    
     updateSonic();
-
-
-    sonic_msg.field_of_view = DEG2RAD(10);  
-    sonic_msg.max_range = 200.0 / 100.0;    //    2m
-    sonic_msg.min_range =   5.0 / 100.0;    // 0.15m
-    sonic_msg.header.frame_id = "base_scan";
-    sonic_msg.radiation_type = sensor_msgs::Range::ULTRASOUND;
-
-    sonic_msg.header.stamp = nh.now();
-    sonic_msg.header.seq = seq_ctr++;
-    sonic_msg.range = sonic_distance;    
-
-    sonic_pub.publish(&sonic_msg);      
   }
   
 
@@ -190,8 +187,6 @@ void commandVelocityCallback(const geometry_msgs::Twist& cmd_vel_msg)
 *******************************************************************************/
 void controlMotorSpeed(void)
 {
-  //bool dxl_comm_result = false;
-
   double wheel_speed_cmd[2];
   double lin_vel_left;
   double lin_vel_right;
@@ -210,8 +205,8 @@ void controlMotorSpeed(void)
 *******************************************************************************/
 void updateSonic(void)
 {
-  int  duration;
-  long distance_mm;
+  uint32_t duration;
+  long     distance_mm;
 
   digitalWrite(sonic_trigger_pin, LOW);
   delayMicroseconds(2);
@@ -221,20 +216,123 @@ void updateSonic(void)
 
   // 최대 측정 시간을 7ms로 제한함 
   //
-  duration = pulseIn(sonic_echo_pin, HIGH, 7000); // Waits for the echo pin to get high
-  
-    
+  duration = pulseIn(sonic_echo_pin, HIGH, 7000); // Waits for the echo pin to get high    
   if (duration == 0)
   {
     duration = 7000;
   }
-  
+
   sonic_filter.in(duration);
   duration = sonic_filter.out();
 
-  distance_mm = (((double)duration / 2.9) / 2.0);     // Actual calculation in mm
+  distance_mm = ((duration / 2.9) / 2);     // Actual calculation in mm
+  //sonic_distance = (double)distance_mm / 1000.0;
+  //sonic_msg.range = (double)distance_mm / 1000.0;
 
-  sonic_distance = (double)distance_mm / 1000.0;
+  sensor_msg.sonic_distance_time = duration;
 }
 
 
+/*******************************************************************************
+* updateMPU9250
+*******************************************************************************/
+void updateMPU9250(void)
+{
+  float aRes =   2.0 / 32768.0;
+  float gRes = 250.0 / 32768.0;
+
+  int16_t ax, ay, az = 0;
+  int16_t gx, gy, gz = 0;
+
+  float acc[3];
+  float gyro[3];
+
+
+  imuGetData(&ax, &ay, &az, &gx, &gy, &gz);
+
+  #if 1
+  acc[0] = (float)((float)ax - acc_cal[0]) * aRes;
+  acc[1] = (float)((float)ay - acc_cal[1]) * aRes;
+  acc[2] = (float)az*aRes;
+
+  gyro[0] = (float)((float)gx - gyro_cal[0]) * gRes;
+  gyro[1] = (float)((float)gy - gyro_cal[1]) * gRes;
+  gyro[2] = (float)((float)gz - gyro_cal[2]) * gRes;
+  #else
+  acc[0] = (float)ax * aRes;
+  acc[1] = (float)ay * aRes;
+  acc[2] = (float)az * aRes;
+
+  gyro[0] = (float)gx * gRes;
+  gyro[1] = (float)gy * gRes;
+  gyro[2] = (float)gz * gRes;
+  #endif
+  
+  filter.updateIMU(gyro[0], gyro[1], gyro[2], acc[0], acc[1], acc[2]);
+
+  //sensor_msg.qw = filter.getRoll();
+  //sensor_msg.qx = filter.getPitch();
+  //sensor_msg.qy = filter.getYaw();
+
+  sensor_msg.ax = ax;
+  sensor_msg.ay = ay;
+  sensor_msg.az = az;
+  sensor_msg.gx = gx;
+  sensor_msg.gy = gy;
+  sensor_msg.gz = gz;
+
+  sensor_msg.qw = filter.q0;
+  sensor_msg.qx = filter.q1;
+  sensor_msg.qy = filter.q2;
+  sensor_msg.qz = filter.q3;
+}
+
+void imuGetData(int16_t* a_x, int16_t* a_y, int16_t* a_z, int16_t* g_x, int16_t* g_y, int16_t* g_z)
+{
+  int16_t  a[3];
+  int16_t  g[3];
+
+  mpu9250.getMotion6(&a[0], &a[1], &a[2], &g[0], &g[1], &g[2]);
+
+  *a_x = -a[1];
+  *a_y = a[0];
+  *a_z = a[2];
+
+  *g_x = -g[1];
+  *g_y = g[0];
+  *g_z = g[2];  
+}
+
+void imuCalibration(void)
+{
+	int      cal_int = 0;
+  uint8_t  axis = 0;
+  uint16_t cal_count = 1000;
+  int16_t  a[3];
+  int16_t  g[3];
+
+
+  for(axis=0; axis<3; axis++)
+  {
+    acc_cal[axis]  = 0;
+    gyro_cal[axis] = 0;
+  }
+
+  for (cal_int = 0; cal_int < cal_count; cal_int ++)
+  {
+    imuGetData(&a[0], &a[1], &a[2], &g[0], &g[1], &g[2]);
+    
+		for(axis=0; axis<3; axis++)
+		{
+      acc_cal[axis]  += (float)a[axis];
+			gyro_cal[axis] += (float)g[axis];
+		}
+	}
+
+	for(axis=0; axis<3; axis++)
+	{
+    acc_cal[axis]  /= (float)cal_count;
+		gyro_cal[axis] /= (float)cal_count;
+  }
+  acc_cal[2] = 0;
+}
