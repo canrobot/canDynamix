@@ -62,8 +62,8 @@ MPU9250::MPU9250(uint8_t address) {
  */
 void MPU9250::initialize() {
     setClockSource(MPU9250_CLOCK_PLL_XGYRO);
-    setFullScaleGyroRange(MPU9250_GYRO_FS_250);
-    setFullScaleAccelRange(MPU9250_ACCEL_FS_2);
+    setFullScaleGyroRange(MPU9250_GYRO_FS_2000);
+    setFullScaleAccelRange(MPU9250_ACCEL_FS_8);    
     setSleepEnabled(false); // thanks to Jack Elston for pointing this one out!
 }
 

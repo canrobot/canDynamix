@@ -238,8 +238,9 @@ void updateSonic(void)
 *******************************************************************************/
 void updateMPU9250(void)
 {
-  float aRes =   2.0 / 32768.0;
-  float gRes = 250.0 / 32768.0;
+  float aRes =    8.0 / 32768.0;
+  float gRes = 2000.0 / 32768.0;
+
 
   int16_t ax, ay, az = 0;
   int16_t gx, gy, gz = 0;
