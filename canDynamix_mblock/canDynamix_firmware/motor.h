@@ -11,6 +11,7 @@
 
 
 void motorBegin(void);
+void motorSetCallback(void (*func)(void));
 
 int32_t motorGetSpeed(uint8_t ch);
 int32_t motorGetCounter(uint8_t ch);

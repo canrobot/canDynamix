@@ -1,458 +1,356 @@
-/*************************************************************************
-* File Name          : canDynamix_firmware.ino
-* Author             : Kyung Man Shin
-* Updated            : Kyung Man Shin
-* Version            : V1.0
-* Date               : 10/06/2017
-* Description        : Firmware for canDynamix with Scratch.  
-* License            : CC-BY-SA 3.0
-**************************************************************************/
+/* Authors: kyungman shin, Baram */
 
-#include <Servo.h>
+#include "mblock.h"
 #include "motor.h"
+#include "MedianFilter.h"
+#include "src/mpu9250/MPU9250.h"
+#include "src/mpu9250/MadgwickAHRS.h"
 
-   Servo servo;
-   Servo servo1;
-   Servo servo2;
-   Servo servo3;
-   Servo servo4;
- 
-boolean isAvailable = false;
-boolean isBluetooth = false;
+#include <Wire.h>
 
- int analogs[8]={A0,A1,A2,A3,A4,A5,A6,A7};
+#define WHEEL_RADIUS                     0.0165          // meter
+#define WHEEL_SEPARATION                 0.086           // meter (canDynamix n20 motor)
+#define TURNING_RADIUS                   0.080           // meter (BURGER : 0.080, WAFFLE : 0.1435)
+#define ROBOT_RADIUS                     0.105           // meter (BURGER : 0.105, WAFFLE : 0.220)
+#define ENCODER_MIN                     -2147483648      // raw
+#define ENCODER_MAX                      2147483648      // raw
 
-typedef struct MeModule
+#define LEFT  0
+#define RIGHT 1
+
+
+
+#define VELOCITY_CONSTANT_VALUE           135.1090523 // V = r * w = 1400 / 2 * PI * r 
+                                                      // = 0.0165 * 0.229 * Goal RPM * 0.10472
+                                                      // Goal Speed = V * 1263.632956882
+
+#define DEG2RAD(x)                        (x * 0.01745329252)  // *PI/180
+#define RAD2DEG(x)                        (x * 57.2957795131)  // *180/PI
+                                                      
+
+
+
+
+void imuGetData(int16_t* a_x, int16_t* a_y, int16_t* a_z, int16_t* g_x, int16_t* g_y, int16_t* g_z);
+
+
+
+/*******************************************************************************
+* SoftwareTimer of canDynamix
+*******************************************************************************/
+static uint32_t tTime[4];
+
+
+
+/*******************************************************************************
+* Declaration for sonic
+*******************************************************************************/
+MedianFilter sonic_filter(16, 0);
+#define sonic_trigger_pin  A0 //Trig pin
+#define sonic_echo_pin     A1 //Echo pin
+long     distance_mm;
+
+/*******************************************************************************
+* Declaration for MPU9250
+*******************************************************************************/
+MPU9250  mpu9250;
+Madgwick filter;
+
+float acc_cal[3];
+float gyro_cal[3];
+
+void imuCalibration(void);
+void updateMPU9250(void);
+void updateSonic(void);
+
+
+/*******************************************************************************
+* Declaration for mblock
+*******************************************************************************/
+void mblockRead(mblcok_packet_t *p_packet, uint8_t device);
+void mblockRun(mblcok_packet_t *p_packet, uint8_t device);
+
+void setup()
 {
-    int device;
-    int port;
-    int slot;
-    int pin;
-    int index;
-    float values[3];
-} MeModule;
-
-union{
-    byte byteVal[4];
-    float floatVal;
-    long longVal;
-}val;
-
-union{
-  byte byteVal[8];
-  double doubleVal;
-}valDouble;
-
-union{
-  byte byteVal[2];
-  short shortVal;
-}valShort;
-
-
-int len = 52;
-char buffer[52];
-char bufferBt[52];
-byte index = 0;
-byte dataLen;
-byte modulesLen=0;
-boolean isStart = false;
-unsigned char irRead;
-char serialRead;
-#define VERSION 0
-#define ULTRASONIC_SENSOR 1
-#define TEMPERATURE_SENSOR 2
-#define LIGHT_SENSOR 3
-#define POTENTIONMETER 4
-#define JOYSTICK 5
-#define GYRO 6
-#define SOUND_SENSOR 7
-#define RGBLED 8
-#define SEVSEG 9
-#define MOTOR 100
-#define SERVO 11
-//#define ENCODER 12
-#define IR 13
-#define PIRMOTION 15
-#define INFRARED 16
-#define LINEFOLLOWER 17
-#define SHUTTER 20
-#define LIMITSWITCH 21
-#define BUTTON 22
-#define DIGITAL 30
-#define ANALOG 31
-#define PWM 32
-#define SERVO_PIN 33
-#define TONE 34
-#define PULSEIN 35
-#define ULTRASONIC_ARDUINO 36
-#define STEPPER 40
-#define ENCODER 41
-#define TIMER 50
-#define L_SERVO 37
-#define R_SERVO 38
-#define BUZZER 39
-#define LED 42
-
-#define N20 100
-
-#define GET 1
-#define RUN 2
-#define RESET 4
-#define START 5
-float angleServo = 90.0;
-unsigned char prevc=0;
-double lastTime = 0.0;
-double currentTime = 0.0;
-
-void setup() {
   motorBegin();
-  pinMode(13,OUTPUT);
-  pinMode(10,OUTPUT);
-  pinMode(11,OUTPUT);
-  digitalWrite(13,HIGH);
-  delay(300);
-  digitalWrite(13,LOW);
   Serial.begin(115200);
 
+  motorMoveSpeed(0, 0);
+  
+  pinMode(13, OUTPUT);
+  pinMode(sonic_trigger_pin, OUTPUT); // Trigger is an output pin
+  pinMode(sonic_echo_pin, INPUT);     // Echo is an input pin
 
+
+  Wire.begin();  
+  mpu9250.initialize();
+  filter.begin(100);
+  imuCalibration();
+
+  mblockBegin(115200);
+  mblockSetReadCallback(mblockRead);
+  mblockSetRunCallback(mblockRun);  
 }
 
 void loop() {
-
-
-   readSerial();
-    if(isAvailable){
-    unsigned char c = serialRead&0xff;
-    if(c==0x55&&isStart==false){
-     if(prevc==0xff){
-      index=1;
-      isStart = true;
-     }
-    }else{
-      prevc = c;
-      if(isStart){
-        if(index==2){
-         dataLen = c; 
-        }else if(index>2){
-          dataLen--;
-        }
-        writeBuffer(index,c);
-      }
-    }
-     index++;
-     if(index>51){
-      index=0; 
-      isStart=false;
-     }
-     if(isStart&&dataLen==0&&index>3){ 
-        isStart = false;
-        parseData(); 
-        index=0;
-     }
+  // 100Hz
+  if ((millis()-tTime[1]) >= (1000 / 100))
+  {
+    tTime[1] = millis();
+        
+    updateMPU9250();
   }
-}
 
-unsigned char readBuffer(int index){
- return isBluetooth?bufferBt[index]:buffer[index]; 
-}
-void writeBuffer(int index,unsigned char c){
- if(isBluetooth){
-  bufferBt[index]=c;
- }else{
-  buffer[index]=c;
- } 
-}
-void writeHead(){
-  writeSerial(0xff);
-  writeSerial(0x55);
-}
-void writeEnd(){
- Serial.println(); 
- #if defined(__AVR_ATmega32U4__) 
-   Serial1.println();
- #endif
-}
-void writeSerial(unsigned char c){
- Serial.write(c);
- #if defined(__AVR_ATmega32U4__) 
-   Serial1.write(c);
- #endif
-}
-void readSerial(){
-  isAvailable = false;
-  if(Serial.available()>0){
-    isAvailable = true;
-    isBluetooth = false;
-    serialRead = Serial.read();
+  
+  // 50Hz
+  if ((millis()-tTime[2]) >= (1000 / 50))
+  {
+    tTime[2] = millis();
+   
+    updateSonic();
   }
-  #if defined(__AVR_ATmega32U4__) 
-  if(Serial1.available()>0){
-    isAvailable = true;
-    isBluetooth = true;
-    serialRead = Serial1.read();
-  }
- #endif
+
+  mblockUpdate();
 }
 
-/*
-ff 55 len idx action device port  slot  data a
-0  1  2   3   4      5      6     7     8
-*/
 
-void parseData(){
-  isStart = false;
-  int idx = readBuffer(3);
-  int action = readBuffer(4);
-  int device = readBuffer(5);
-  switch(action){
-    case GET:{
-        writeHead();
-        writeSerial(idx);
-        readSensor(device);
-        writeEnd();
-     }
-     break;
-     case RUN:{
-       runModule(device);
-       callOK();
-     }
+/*******************************************************************************
+* updateSonic
+*******************************************************************************/
+void updateSonic(void)
+{
+  uint32_t duration;
+  
+
+  digitalWrite(sonic_trigger_pin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(sonic_trigger_pin, HIGH);    // Trigger pin to HIGH
+  delayMicroseconds(10); // 10us high
+  digitalWrite(sonic_trigger_pin, LOW);     // Trigger pin to HIGH
+
+  // 최대 측정 시간을 7ms로 제한함 
+  //
+  duration = pulseIn(sonic_echo_pin, HIGH, 7000); // Waits for the echo pin to get high    
+  if (duration == 0)
+  {
+    duration = 7000;
+  }
+
+  sonic_filter.in(duration);
+  duration = sonic_filter.out();
+
+  distance_mm = ((duration / 2.9) / 2);     // Actual calculation in mm
+  //sonic_distance = (double)distance_mm / 1000.0;
+  //sonic_msg.range = (double)distance_mm / 1000.0;
+}
+
+
+/*******************************************************************************
+* updateMPU9250
+*******************************************************************************/
+void updateMPU9250(void)
+{
+  float aRes =    8.0 / 32768.0;
+  float gRes = 2000.0 / 32768.0;
+
+
+  int16_t ax, ay, az = 0;
+  int16_t gx, gy, gz = 0;
+
+  float acc[3];
+  float gyro[3];
+
+
+  imuGetData(&ax, &ay, &az, &gx, &gy, &gz);
+
+  acc[0] = (float)((float)ax - acc_cal[0]) * aRes;
+  acc[1] = (float)((float)ay - acc_cal[1]) * aRes;
+  acc[2] = (float)az*aRes;
+
+  gyro[0] = (float)((float)gx - gyro_cal[0]) * gRes;
+  gyro[1] = (float)((float)gy - gyro_cal[1]) * gRes;
+  gyro[2] = (float)((float)gz - gyro_cal[2]) * gRes;
+  
+  filter.updateIMU(gyro[0], gyro[1], gyro[2], acc[0], acc[1], acc[2]);
+}
+
+void imuGetData(int16_t* a_x, int16_t* a_y, int16_t* a_z, int16_t* g_x, int16_t* g_y, int16_t* g_z)
+{
+  int16_t  a[3];
+  int16_t  g[3];
+
+  mpu9250.getMotion6(&a[0], &a[1], &a[2], &g[0], &g[1], &g[2]);
+
+  *a_x = -a[1];
+  *a_y = a[0];
+  *a_z = a[2];
+
+  *g_x = -g[1];
+  *g_y = g[0];
+  *g_z = g[2];  
+}
+
+void imuCalibration(void)
+{
+	int      cal_int = 0;
+  uint8_t  axis = 0;
+  uint16_t cal_count = 1000;
+  int16_t  a[3];
+  int16_t  g[3];
+
+
+  for(axis=0; axis<3; axis++)
+  {
+    acc_cal[axis]  = 0;
+    gyro_cal[axis] = 0;
+  }
+
+  for (cal_int = 0; cal_int < cal_count; cal_int ++)
+  {
+    imuGetData(&a[0], &a[1], &a[2], &g[0], &g[1], &g[2]);
+    
+		for(axis=0; axis<3; axis++)
+		{
+      acc_cal[axis]  += (float)a[axis];
+			gyro_cal[axis] += (float)g[axis];
+		}
+	}
+
+	for(axis=0; axis<3; axis++)
+	{
+    acc_cal[axis]  /= (float)cal_count;
+    gyro_cal[axis] /= (float)cal_count;
+  }
+  acc_cal[2] = 0;
+}
+
+
+void mblockRead(mblcok_packet_t *p_packet, uint8_t device)
+{
+  float value=0.0;
+  int port,slot,pin;
+
+  port = p_packet->port;
+  pin = port;
+
+
+  switch(device)
+  {
+    case  GYRO:
       break;
-      case RESET:
-     break;
-     case START:{
-        //start
-        callOK();
+    case  VERSION:
+      break;
+    case  DIGITAL:
+      pinMode(pin,INPUT);
+      mblockSendFloat(digitalRead(pin));
+      break;
+
+    case  ANALOG:      
+      //pinMode(pin,INPUT);
+      if (pin == 0)
+      {
+        mblockSendFloat(distance_mm);
       }
-     break;
+      break;
+
+    case  PULSEIN:
+      break;
+
+    case TIMER:
+      mblockSendFloat((float)millis());
+      break;
   }
 }
-void callOK(){
-    writeSerial(0xff);
-    writeSerial(0x55);
-    writeEnd();
-}
 
-void sendByte(char c){
-  writeSerial(1);
-  writeSerial(c);
-}
-void sendString(String s){
-  int l = s.length();
-  writeSerial(4);
-  writeSerial(l);
-  for(int i=0;i<l;i++){
-    writeSerial(s.charAt(i));
-  }
-}
-void sendFloat(float value){ 
-     writeSerial(0x2);
-     val.floatVal = value;
-     writeSerial(val.byteVal[0]);
-     writeSerial(val.byteVal[1]);
-     writeSerial(val.byteVal[2]);
-     writeSerial(val.byteVal[3]);
-}
-void sendShort(double value){
-     writeSerial(3);
-     valShort.shortVal = value;
-     writeSerial(valShort.byteVal[0]);
-     writeSerial(valShort.byteVal[1]);
-}
-void sendDouble(double value){
-     writeSerial(2);
-     valDouble.doubleVal = value;
-     writeSerial(valDouble.byteVal[0]);
-     writeSerial(valDouble.byteVal[1]);
-     writeSerial(valDouble.byteVal[2]);
-     writeSerial(valDouble.byteVal[3]);
-}
-short readShort(int idx){
-  valShort.byteVal[0] = readBuffer(idx);
-  valShort.byteVal[1] = readBuffer(idx+1);
-  return valShort.shortVal; 
-}
-float readFloat(int idx){
-  val.byteVal[0] = readBuffer(idx);
-  val.byteVal[1] = readBuffer(idx+1);
-  val.byteVal[2] = readBuffer(idx+2);
-  val.byteVal[3] = readBuffer(idx+3);
-  return val.floatVal;
-}
-void runModule(int device){
-  //0xff 0x55 0x6 0x0 0x1 0xa 0x9 0x0 0x0 0xa 
-  int port = readBuffer(6);
-  int pin = port;
+void mblockRun(mblcok_packet_t *p_packet, uint8_t device)
+{
+  int port = p_packet->port;
+  int pin  = port;
+  int val;
+  int val1;
+  int v;
+  int v1;
+  int leftSpeed;
+  int rightSpeed;
+  int hz;
+  int ms;
 
-//  if(device == L_SERVO){ servo1.attach(7); }
-//  else if(device == R_SERVO){ servo2.attach(8); }
-//  else { servo1.attach(100); servo2.attach(101); }
 
-  switch(device){
-   case MOTOR:{
-     int leftSpeed =  readBuffer(6);
-     int rightSpeed =  readBuffer(7);
-     if(leftSpeed >= 200){ leftSpeed = -(256-leftSpeed); }
-     if(rightSpeed >= 200){ rightSpeed = -(256-rightSpeed); }
+  switch(device)
+  {
+    case MOTOR:
+      leftSpeed  = mblockReadBuffer(6);
+      rightSpeed = mblockReadBuffer(7);
+      if(leftSpeed >= 200) { leftSpeed  = -(256-leftSpeed);  }
+      if(rightSpeed >= 200){ rightSpeed = -(256-rightSpeed); }
       motorMoveSpeed(leftSpeed, rightSpeed);
-   }
-    break;
+      break;
    
     case JOYSTICK:
-    break;
-   // case STEPPER: 
-    //break;
+      break;
+
     case ENCODER:
-    break;
-   case RGBLED:
-   break;
-   case SERVO:
-   break;
+      break;
 
-  case LED:{
+    case RGBLED:
+      break;
+    case SERVO:
+      break;
 
-     int v = readBuffer(6);
-     int v1 = readBuffer(7);
-     digitalWrite(11,v);
-     digitalWrite(10,v1);
-  }
-   break;
+    case LED:
+      v  = mblockReadBuffer(6);
+      v1 = mblockReadBuffer(7);
+      digitalWrite(11,v);
+      digitalWrite(10,v1);
+      break;
   
-  case BUZZER:{
-     int v = readBuffer(6);
-     digitalWrite(13,v);
-  }
-   break;
+    case BUZZER:
+      v = mblockReadBuffer(6);
+      digitalWrite(13,v);
+      break;
 
    
-   case SERVO_PIN:{
-     int val =  readBuffer(6);
-     int val1 =  readBuffer(7);
-     if(val>=0&&val<=180&&val1>=0&&val1<=180){
+    case SERVO_PIN:
+      val  =  mblockReadBuffer(6);
+      val1 =  mblockReadBuffer(7);
+      /*
+      if(val>=0&&val<=180&&val1>=0&&val1<=180)
+      {
         servo3.attach(4); 
         servo3.write(val); 
         servo4.attach(12); 
         servo4.write(val1); 
-     }
-       
-   }
-   break;
-//   
-//  case L_SERVO:{
-//
-//
-//     int v =  readBuffer(7);
-//     if(v>=0&&v<=180){
-//        servo1.attach(7); 
-//        servo1.write(v); 
-//        
-//    
-//     }
-//   }
-//   break;
-//
-//  case R_SERVO:{
-//
-//     int v =  readBuffer(7);
-//     if(v>=0&&v<=180){
-//        servo2.attach(8); 
-//        servo2.write(v); 
-//     }
-//   }
-//   break;
-//   
-   case SEVSEG:
-   break;
-   case LIGHT_SENSOR:
-   break;
-   case SHUTTER:
-   break;
-   case DIGITAL:{
-     pinMode(pin,OUTPUT);
-     int v = readBuffer(7);
-     digitalWrite(pin,v);
-   }
-   break;
-   case PWM:{
-     pinMode(pin,OUTPUT);
-     int v = readBuffer(7);
-     analogWrite(pin,v);
-   }
-   break;
-   case TONE:{
-     pinMode(pin,OUTPUT);
-     int hz = readShort(7);
-     int ms = readShort(9);
-     if(ms>0){
-       tone(pin, hz, ms); 
-     }else{
+      } 
+      */      
+      break;
+
+    case DIGITAL:
+      pinMode(pin,OUTPUT);
+      v = mblockReadBuffer(7);
+      digitalWrite(pin,v);
+      break;
+
+    case PWM:
+      pinMode(pin,OUTPUT);
+      v = mblockReadBuffer(7);
+      analogWrite(pin,v);
+      break;
+
+    case TONE:
+      pinMode(pin,OUTPUT);
+      hz = mblockReadShort(7);
+      ms = mblockReadShort(9);
+      if(ms>0)
+      {
+        tone(pin, hz, ms); 
+      }
+      else
+      {
        noTone(pin); 
-     }
-   }
-   break;
+      }
+      break;
 
-   case TIMER:{
-    lastTime = millis()/1000.0; 
-   }
-   break;
+    case TIMER:
+      break;
   }
 }
-void readSensor(int device){
-  /**************************************************
-      ff 55 len idx action device port slot data a
-      0  1  2   3   4      5      6    7    8
-  ***************************************************/
-  float value=0.0;
-  int port,slot,pin;
-  port = readBuffer(6);
-  pin = port;
-  switch(device){
-   case  ULTRASONIC_SENSOR:
-   break;
-   case  TEMPERATURE_SENSOR:
-   break;
-   case  LIGHT_SENSOR:
-   case  SOUND_SENSOR:
-   case  POTENTIONMETER:
-   break;
-   case  JOYSTICK:
-   break;
-   case  INFRARED:
-   break;
-   case  PIRMOTION:
-   break;
-   case  LINEFOLLOWER:
-   break;
-   case LIMITSWITCH:
-   break;
-   case  GYRO:
-   break;
-   case  VERSION:{
-    // sendString(mVersion);
-   }
-   break;
-   case  DIGITAL:{
-     pinMode(pin,INPUT);
-     sendFloat(digitalRead(pin));
-   }
-   break;
-   case  ANALOG:{
-     pin = analogs[pin];
-     pinMode(pin,INPUT);
-     sendFloat(analogRead(pin));
-   }
-   break;
-   case  PULSEIN:
-   break;
-   case ULTRASONIC_ARDUINO:
-   break;
-   case TIMER:{
-     sendFloat((float)currentTime);
-   }
-   break;
-  }
-}
-
-
-
-
-

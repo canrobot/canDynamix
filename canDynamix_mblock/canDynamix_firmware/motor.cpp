@@ -45,6 +45,10 @@ typedef struct
 motor_cfg_t motor_cfg[2];
 
 
+void (*motor_isr_callback)(void) = NULL;
+
+
+
 static void motorEncoderLeftISR(void);
 static void motorEncoderRightISR(void);
 static void motorEncoderUpdate(uint8_t ch);
@@ -57,17 +61,17 @@ static void motorUpdateISR(void);
 void motorBegin(void)
 {
   motor_cfg[L_MOTOR].mot_dir    =-1;  // 1 or -1
-  motor_cfg[L_MOTOR].enc_pin[0] = 2;  // Interrupt Pin
-  motor_cfg[L_MOTOR].enc_pin[1] = 4;
-  motor_cfg[L_MOTOR].mot_pin[0] = 6;
-  motor_cfg[L_MOTOR].mot_pin[1] = 5;
+  motor_cfg[L_MOTOR].enc_pin[0] = 3;  // Interrupt Pin
+  motor_cfg[L_MOTOR].enc_pin[1] = 7;
+  motor_cfg[L_MOTOR].mot_pin[0] = 9;
+  motor_cfg[L_MOTOR].mot_pin[1] = 10;
   
   
   motor_cfg[R_MOTOR].mot_dir    = 1;  // 1 or -1
-  motor_cfg[R_MOTOR].enc_pin[0] = 3;  // Interrupt Pin
-  motor_cfg[R_MOTOR].enc_pin[1] = 7;
-  motor_cfg[R_MOTOR].mot_pin[0] = 9;
-  motor_cfg[R_MOTOR].mot_pin[1] = 10;  
+  motor_cfg[R_MOTOR].enc_pin[0] = 2;  // Interrupt Pin
+  motor_cfg[R_MOTOR].enc_pin[1] = 4;
+  motor_cfg[R_MOTOR].mot_pin[0] = 6;
+  motor_cfg[R_MOTOR].mot_pin[1] = 5;  
 
   
   for (int i=0; i<2; i++)
@@ -95,6 +99,11 @@ void motorBegin(void)
 
   FlexiTimer2::set(10, motorUpdateISR); 
   FlexiTimer2::start();  
+}
+
+void motorSetCallback(void (*func)(void))
+{
+  motor_isr_callback = func;
 }
 
 int32_t motorGetSpeed(uint8_t ch)
@@ -163,6 +172,11 @@ void motorUpdateISR(void)
         motorSetPwm(i, (int16_t)motor_cfg[i].pwm_output);
       }
     }      
+  }
+
+  if (motor_isr_callback != NULL)
+  {
+    (*motor_isr_callback)();
   }
 }
 
