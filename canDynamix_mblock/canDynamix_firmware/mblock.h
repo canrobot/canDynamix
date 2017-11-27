@@ -72,6 +72,7 @@ void  mblockSendByte(char c);
 void  mblockSendString(String s);
 void  mblockSendFloat(float value);
 void  mblockSendShort(double value);
+void  mblockSendInt(uint32_t value);
 void  mblockSendDouble(double value);
 short mblockReadShort(int idx);
 float mblockReadFloat(int idx);

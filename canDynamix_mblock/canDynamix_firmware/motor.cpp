@@ -155,6 +155,7 @@ void motorSetPwm(uint8_t ch, int16_t pwm_data )
 //
 void motorUpdateISR(void)
 {
+  sei();
   for (int i=0; i<2; i++)
   {
     motor_cfg[i].speed = motor_cfg[i].counter - motor_cfg[i].start_counter;
@@ -182,11 +183,13 @@ void motorUpdateISR(void)
 
 void motorEncoderLeftISR(void)
 {
+  sei();
   motorEncoderUpdate(L_MOTOR);
 }
 
 void motorEncoderRightISR(void)
 {
+  sei();
   motorEncoderUpdate(R_MOTOR);
 }
 

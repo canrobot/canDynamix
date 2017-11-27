@@ -94,7 +94,7 @@ unsigned char mblockReadBuffer(int index)
 
 void mblockSendByte(char c)
 {
-  writeSerial(1);
+  writeSerial(1); // 1 : byte
   writeSerial(c);
 }
 
@@ -110,7 +110,16 @@ void mblockSendString(String s)
 }
 void mblockSendFloat(float value)
 { 
-  writeSerial(0x2);
+  writeSerial(0x2); // 2 : float 
+  val.floatVal = value;
+  writeSerial(val.byteVal[0]);
+  writeSerial(val.byteVal[1]);
+  writeSerial(val.byteVal[2]);
+  writeSerial(val.byteVal[3]);
+}
+void mblockSendInt(uint32_t value)
+{ 
+  writeSerial(0x6); // 6 : int32
   val.floatVal = value;
   writeSerial(val.byteVal[0]);
   writeSerial(val.byteVal[1]);
@@ -119,14 +128,14 @@ void mblockSendFloat(float value)
 }
 void mblockSendShort(double value)
 {
-  writeSerial(3);
+  writeSerial(3);   // 3 : intt16
   valShort.shortVal = value;
   writeSerial(valShort.byteVal[0]);
   writeSerial(valShort.byteVal[1]);
 }
 void mblockSendDouble(double value)
 {
-  writeSerial(2);
+  writeSerial(2);   // 2 : float
   valDouble.doubleVal = value;
   writeSerial(valDouble.byteVal[0]);
   writeSerial(valDouble.byteVal[1]);
@@ -155,10 +164,13 @@ float mblockReadFloat(int idx)
 bool mblockUpdate(void)
 {
   bool ret = false;
+  uint8_t ch;
+
 
   if (MBLOCK_SERIAL.available() > 0)
   {
-    ret = mblockReceivePacket(MBLOCK_SERIAL.read());
+    ch = MBLOCK_SERIAL.read();
+    ret = mblockReceivePacket(ch);
   }
 
 
@@ -205,6 +217,14 @@ bool mblockUpdate(void)
 bool mblockReceivePacket(uint8_t rx_data)
 {
   bool ret = false;
+  static uint32_t pre_time;
+
+  
+  if (millis()-pre_time >= 50)
+  {
+    pre_time = millis();
+    mblock_packet.state = 0;
+  }
 
 
   switch(mblock_packet.state)
@@ -247,6 +267,10 @@ bool mblockReceivePacket(uint8_t rx_data)
 
         ret = true;
         mblock_packet.state = 0;
+
+        //MBLOCK_SERIAL.write(0xAA);
+        //MBLOCK_SERIAL.write(mblock_packet.action);
+        
       }
       break;
   }

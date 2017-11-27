@@ -48,7 +48,7 @@ static uint32_t tTime[4];
 MedianFilter sonic_filter(16, 0);
 #define sonic_trigger_pin  A0 //Trig pin
 #define sonic_echo_pin     A1 //Echo pin
-long     distance_mm;
+uint32_t   distance_mm;
 
 /*******************************************************************************
 * Declaration for MPU9250
@@ -142,6 +142,7 @@ void updateSonic(void)
   distance_mm = ((duration / 2.9) / 2);     // Actual calculation in mm
   //sonic_distance = (double)distance_mm / 1000.0;
   //sonic_msg.range = (double)distance_mm / 1000.0;
+  //Serial.println(distance_mm);
 }
 
 
