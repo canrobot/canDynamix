@@ -1,4 +1,10 @@
+<img src="https://github.com/canrobot/canDynamix/blob/master/canDynamix_mblock/canDynamix.png?raw=true" width="300">
+
 # canDynamix
-자율주행 자동차 프로젝트 입니다. (ROS기반)
+
+TurtleBot3 is a new generation mobile robot that is modular, compact and customizable. Let’s explore ROS and create exciting applications for education, research and product development.
 
 
+# canDynamix
+
+TurtleB
